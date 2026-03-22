@@ -1,5 +1,7 @@
 'use client';
 
+import { useState } from 'react';
+
 interface InterviewViewProps {
   suspect: {
     id: string;
@@ -13,15 +15,16 @@ interface InterviewViewProps {
   };
   victim: { name: string };
   onBack: () => void;
-  isQuestionAsked: (questionIndex: number) => boolean;
+  onQuestionAsked?: (questionIndex: number, answer: string) => void;
 }
 
 export default function InterviewView({
   suspect,
   victim,
   onBack,
-  isQuestionAsked,
+  onQuestionAsked,
 }: InterviewViewProps) {
+  const [askedQuestions, setAskedQuestions] = useState<Set<number>>(new Set());
   const questions = [
     'Where were you at the time of the murder?',
     `What can you tell me about ${victim.name}?`,
@@ -107,12 +110,19 @@ export default function InterviewView({
 
       <div className="space-y-3">
         {questions.map((question, index) => {
-          const isAnswered = isQuestionAsked(index);
+          const isAnswered = askedQuestions.has(index);
+          const handleQuestionClick = () => {
+            if (!isAnswered && onQuestionAsked) {
+              setAskedQuestions(prev => new Set(prev).add(index));
+              onQuestionAsked(index, answers[index]);
+            }
+          };
           return (
             <div
               key={index}
+              onClick={handleQuestionClick}
               className={`p-4 rounded-lg transition-colors ${
-                isAnswered ? 'bg-gray-800 opacity-60' : 'bg-gray-900 hover:bg-gray-800 cursor-pointer'
+                isAnswered ? 'bg-gray-800 opacity-60 cursor-default' : 'bg-gray-900 hover:bg-gray-800 cursor-pointer'
               }`}
             >
               <h4 className="font-semibold text-gray-200 mb-2">{question}</h4>

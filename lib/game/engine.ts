@@ -94,6 +94,32 @@ function generateClues(
     revealed: false,
   });
 
+  // Physical room clues — one per room
+  const roomPhysicalClues: Record<string, string> = {
+    study: 'A torn letter on the desk reveals a heated argument over finances',
+    library: 'A bookmark left in a book on poisons — someone was researching methods',
+    ballroom: 'Muddy footprints on the polished floor lead toward the study',
+    kitchen: 'A knocked-over spice rack and fresh blood on the counter',
+    cellar: 'An empty wine bottle with a cloth stopper — could have held poison',
+    terrace: 'A half-smoked cigar with unusual burn marks near the railing',
+    bedroom: 'A hidden compartment in the vanity contains a threatening note',
+    drawing: 'Overturned furniture and a broken vase — signs of a struggle',
+  };
+
+  rooms.forEach((room) => {
+    const clueText = roomPhysicalClues[room.id];
+    if (clueText) {
+      clues.push({
+        id: generateId(),
+        text: clueText,
+        roomId: room.id,
+        roomName: room.name,
+        type: 'herring' as const,
+        revealed: false,
+      });
+    }
+  });
+
   return shuffle(clues);
 }
 
