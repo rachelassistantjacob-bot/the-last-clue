@@ -170,6 +170,24 @@ export function generateMystery(): MysteryState {
   
   const clues = generateClues(killer, weapon, murderRoom, suspects);
   
+  // Pre-generate interview clues for each suspect (excluding victim)
+  const interviewClues: Clue[] = [];
+  const nonVictimSuspects = suspects.filter(s => s.id !== victim.id);
+  nonVictimSuspects.forEach(suspect => {
+    const d = suspectDialogues[suspect.id];
+    const answers = [d.question1, d.question2, d.question3];
+    answers.forEach((answer, index) => {
+      interviewClues.push({
+        id: `interview-${suspect.id}-${index}`,
+        text: answer,
+        roomId: suspectLocation[suspect.id] || rooms[0].id,
+        roomName: rooms.find(r => r.id === suspectLocation[suspect.id])?.name || rooms[0].name,
+        type: 'direct' as const,
+        revealed: false,
+      });
+    });
+  });
+  
   return {
     victim,
     killer,
@@ -179,7 +197,7 @@ export function generateMystery(): MysteryState {
     allRooms: rooms,
     allWeapons: weapons,
     suspectLocation,
-    clues,
+    clues: [...clues, ...interviewClues],
     dialogue,
   };
 }

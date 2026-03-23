@@ -1,0 +1,59 @@
+REVISE — 2 critical bugs from the plan checker were NOT fixed
+
+## Critical Bug 1: Interview clues never appear on Evidence Board
+
+Current implementation adds interview clue IDs to `discoveredClues` state, but those clue objects don't exist in `mystery.clues`. EvidenceBoard filters `mystery.clues.filter(c => discoveredClues.includes(c.id))` — so interview clues are invisible.
+
+Fix: Pre-generate interview clues in `lib/game/engine.ts` inside `generateMystery()` and add them to `mystery.clues` with `revealed: false`.
+
+For each suspect (excluding victim), generate 3 interview clues with predictable IDs:
+```ts
+// In generateMystery(), after the existing clues generation:
+const interviewClues: Clue[] = [];
+suspects.filter(s => s.id !== victim.id).forEach(suspect => {
+  const dialogue = suspectDialogues[suspect.id];
+  const answers = [dialogue.question1, dialogue.question2, dialogue.question3];
+  answers.forEach((answer, index) => {
+    interviewClues.push({
+      id: `interview-${suspect.id}-${index}`,
+      text: answer,
+      roomId: suspectLocation[suspect.id] || 'unknown',
+      roomName: rooms.find(r => r.id === suspectLocation[suspect.id])?.name || 'Interview',
+      type: 'direct' as const,
+      revealed: false,
+    });
+  });
+});
+// Add to clues array before returning:
+// clues = [...clues, ...interviewClues]
+// OR add to MysteryState separately
+```
+
+The GameShell `handleQuestionAsked` already creates clues with IDs `interview-${suspectId}-${questionIndex}` — these IDs will match the pre-generated ones. So DISCOVER_CLUES will find and reveal them. No state shape changes needed.
+
+BUT: The interviewClues must be part of `mystery.clues` (the array EvidenceBoard filters against). Add them to the returned `clues` array in `generateMystery`.
+
+Also remove or ignore the `roomName` passed in `handleQuestionAsked` in GameShell since it's now pre-generated. The IDs just need to match.
+
+## Critical Bug 2: "Search for Clues" button never appears
+
+`ENTER_ROOM` reducer adds the room to `visitedRooms` before rendering. So `isNewRoom={!visitedRooms.includes(currentRoom!)}` is always `false`, and the search button is hidden forever.
+
+Fix: Change the condition to check if this room has undiscovered clues:
+
+In `components/GameShell.tsx`, change:
+```tsx
+isNewRoom={!visitedRooms.includes(currentRoom!)}
+```
+to:
+```tsx
+isNewRoom={roomClues.some(c => !discoveredClues.includes(c.id))}
+```
+
+This shows the "Search for Clues" button whenever there are clues in the room that haven't been discovered yet. Once all clues are found, the button disappears naturally. This is better gameplay too.
+
+## Summary
+- Edit `lib/game/engine.ts`: pre-generate interview clues with IDs `interview-${suspectId}-${index}` and include in returned `clues` array
+- Edit `components/GameShell.tsx`: change `isNewRoom` condition to use undiscovered clues check
+
+Run `npm run build` after changes. Create work-complete.txt only if build passes.

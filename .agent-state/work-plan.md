@@ -1,203 +1,183 @@
-# Work Plan: "The Last Clue" — Procedural Murder Mystery Game
+# Work Plan — Fix 5 Playtest Bugs in The Last Clue
 
 ## Goal
-Build a fully playable, procedural murder mystery browser game using Next.js 14 (App Router) + Tailwind CSS, deployable to Vercel. The game must be genuinely different each playthrough.
+Fix all 5 reported bugs so that: clues appear on evidence board, Helena has a proper emoji, visited rooms are visually distinct, victim is excluded from accusation, and rooms contain discoverable physical clues.
 
-## Stack
-- Next.js 14 App Router (no backend needed — client-side only)
-- TypeScript
-- Tailwind CSS
-- No external APIs — all generation is client-side JS
+## Files to Modify
+1. `lib/game/data.ts` — Fix Helena emoji
+2. `components/MansionMap.tsx` — Add visitedRooms visual distinction
+3. `components/GameShell.tsx` — Wire interview clues, fix accusation filter, pass visitedRooms
+4. `components/InterviewView.tsx` — Add onDiscoverClue callback, make questions clickable and dispatch clues
+5. `lib/game/engine.ts` — Distribute physical clues to all rooms
 
-## Architecture Overview
+---
 
-All game logic lives in `lib/game/` as pure TypeScript modules:
-- `lib/game/data.ts` — Static pools (suspects, rooms, weapons, dialogues)
-- `lib/game/engine.ts` — Mystery generation (random killer, weapon, room, clues)
-- `lib/game/types.ts` — All TypeScript interfaces
+## Tasks
 
-UI lives in `app/` (App Router):
-- `app/page.tsx` — Entry point, renders GameShell
-- `app/layout.tsx` — Root layout (dark theme)
-- `components/GameShell.tsx` — Main controller using useReducer
-- `components/MansionMap.tsx` — Clickable room grid
-- `components/RoomView.tsx` — Room exploration view
-- `components/InterviewView.tsx` — Suspect interview dialog
-- `components/EvidenceBoard.tsx` — Collected clues sidebar
-- `components/AccusationModal.tsx` — Win/lose modal
-- `components/GameOver.tsx` — Outcome screen
+### Task 1: Fix Helena Cross emoji (Bug 2)
+**File:** `lib/game/data.ts`
+**Change:** Find the `cross` suspect entry. Change `avatar: '她们'` to `avatar: '🎨'`
+**Verification:** Run `grep -n "她们" lib/game/data.ts` — should return nothing
 
-## Data Pools
+---
 
-### Suspects (8 total)
-1. **Lord Ashford** (host, role: Nobleman) — greedy, pompous
-2. **Lady Miriam** (wife, role: Socialite) — manipulative, charming
-3. **Dr. Harlow** (physician, role: Doctor) — nervous, secretive
-4. **Chef Beaumont** (cook, role: Chef) — hotheaded, resentful
-5. **Miss Vance** (secretary, role: Secretary) — calculating, loyal
-6. **Butler Graves** (servant, role: Butler) — stoic, observant
-7. **Colonel Finch** (guest, role: Military) — brash, vindictive
-8. **Helena Cross** (niece, role: Heir) — anxious, suspicious
+### Task 2: Filter victim from accusation dropdown (Bug 4)
+**File:** `components/GameShell.tsx`
+**Change:** In the `AccusationModal` JSX block, filter the victim out:
+```tsx
+suspects={mystery.allSuspects
+  .filter(s => s.id !== mystery.victim.id)
+  .map(s => ({ id: s.id, name: s.name, avatar: s.avatar }))}
+```
+**Verification:** Visually inspect — victim id is `'ashford'`, they should not appear in the dropdown.
 
-### Weapons (6 total)
-Candlestick, Poison Vial, Letter Opener, Rope, Crystal Decanter, Fireplace Poker
+---
 
-### Rooms (8 total)
-Study, Library, Ballroom, Kitchen, Wine Cellar, Garden Terrace, Master Bedroom, Drawing Room
+### Task 3: Add visited room indicators (Bug 3)
+**File:** `components/MansionMap.tsx`
+**Change:** 
+1. Add `visitedRooms: string[]` to the props interface
+2. In the room card, check if `visitedRooms.includes(room.id)` and apply a visited style:
+   - Add a green checkmark badge or green border when visited
+   - Slightly dim the card with `opacity-75` or `bg-gray-800` instead of `bg-gray-900`
 
-### Victim
-Always one of the 8 suspects (not the killer). The victim is "found dead" at game start.
-
-## Clue Generation Rules
-
-Generate 6-8 clues per mystery:
-- **2-3 direct clues**: Point toward killer, weapon, OR room (real)
-- **2-3 red herrings**: Point toward innocent suspects (false trails)
-- **1 alibi hole**: The killer's alibi has an inconsistency
-- Each clue has: `id`, `text`, `room` (where found), `type` (direct/herring), `discovered: false`
-
-Each suspect gets an alibi for the time of murder:
-- Innocent suspects: solid alibis ("Was seen in the ballroom at 10pm by two witnesses")
-- Killer: alibi with a hole ("Claims to have been in the study, but the butler saw them near the wine cellar")
-
-## Mystery Generation (`generateMystery()`)
-
-```typescript
-function generateMystery(): MysteryState {
-  // 1. Pick victim (random from suspects pool)
-  // 2. Pick killer (random from remaining suspects)
-  // 3. Pick weapon (random)
-  // 4. Pick murder room (random)
-  // 5. Generate alibis for each suspect
-  // 6. Generate clues (pointing to correct solution + red herrings)
-  // 7. Shuffle clue discovery across rooms
-  // Return complete mystery state
+Example:
+```tsx
+interface MansionMapProps {
+  rooms: Room[];
+  visitedRooms: string[];
+  onEnterRoom: (roomId: string) => void;
 }
+// In JSX:
+const isVisited = visitedRooms.includes(room.id);
+// card className: add `border-green-800/50` and `opacity-80` when isVisited
+// Add a small badge: {isVisited && <span className="text-xs text-green-500">✓ Visited</span>}
 ```
 
-## Game State (useReducer)
+**File:** `components/GameShell.tsx`
+**Change:** Pass `visitedRooms={visitedRooms}` to `<MansionMap>` (it's already in scope from destructuring)
 
-```typescript
-type GameState = {
-  phase: 'intro' | 'explore' | 'interview' | 'accusation' | 'gameover'
-  mystery: MysteryState
-  currentRoom: string | null
-  currentSuspect: string | null
-  discoveredClues: string[]  // clue ids
-  interviewedSuspects: string[]
-  visitedRooms: string[]
-  accusation: { suspect: string; weapon: string; room: string } | null
-  gameResult: 'win' | 'lose' | null
-}
+**Verification:** `grep -n "visitedRooms" components/MansionMap.tsx` should show the prop and usage.
+
+---
+
+### Task 4: Wire interview clues to evidence board (Bug 1)
+**Root cause:** `InterviewView` renders answers but has no callback when a question is clicked. `isQuestionAsked` is hardcoded to `() => false`. No clue is ever added when dialogue is viewed.
+
+**File:** `components/InterviewView.tsx`
+**Changes:**
+1. Add `onQuestionAsked?: (questionIndex: number, answer: string) => void` to props interface
+2. Track local state: `const [askedQuestions, setAskedQuestions] = useState<Set<number>>(new Set())`
+3. On each question click, if not already asked: call `onQuestionAsked(index, answers[index])`, add to local set
+4. Remove the `isQuestionAsked` prop (hardcoded to false, useless) OR keep but use local state
+5. Style asked questions as revealed/dimmed
+
+**File:** `components/GameShell.tsx`
+**Changes:**
+1. Add `onQuestionAsked` handler:
+```tsx
+const handleQuestionAsked = (questionIndex: number, suspectId: string, answer: string) => {
+  if (!mystery) return;
+  const suspect = mystery.allSuspects.find(s => s.id === suspectId);
+  if (!suspect) return;
+  const clue: Clue = {
+    id: `interview-${suspectId}-${questionIndex}`,
+    text: answer,
+    roomId: currentRoom || 'unknown',
+    roomName: mystery.allRooms.find(r => r.id === currentRoom)?.name || 'Interview',
+    type: 'direct',
+    revealed: true,
+  };
+  dispatch({ type: 'DISCOVER_CLUES', clues: [clue] });
+};
+```
+2. Pass to InterviewView:
+```tsx
+onQuestionAsked={(questionIndex, answer) => handleQuestionAsked(questionIndex, currentSuspect!, answer)}
 ```
 
-Actions: START_GAME, ENTER_ROOM, DISCOVER_CLUE, START_INTERVIEW, ASK_QUESTION, MAKE_ACCUSATION, NEW_GAME, RETURN_TO_MAP
+**Verification:** After implementing, the evidence board count should increase when dialogue is clicked.
 
-## UI Design
+---
 
-**Dark detective noir theme:**
-- Background: `bg-gray-950` (near black)
-- Cards: `bg-gray-900` with `border-gray-800`
-- Accent: Amber/gold (`amber-400`, `amber-500`) for clues and highlights
-- Text: `text-gray-100` primary, `text-gray-400` secondary
-- Murder victim: red badge
-- Evidence board: scrollable sidebar with amber card per clue
+### Task 5: Add physical room clues (Bug 5)
+**Root cause:** `generateClues` in `engine.ts` only puts clues in the murder room (3 clues) and 3 herring rooms (at index 0,1,2). Rooms 3,5,6,7 have no clues. Also, the search button only appears for `isNewRoom` and only the already-filtered (empty) clues are shown.
 
-**Layout (desktop):**
+**File:** `lib/game/engine.ts`
+**Change in `generateClues`:** After the existing clues, add physical evidence clues for each room:
+
+```ts
+// Physical room clues — one per room
+const roomPhysicalClues: Record<string, string> = {
+  study: 'A torn letter on the desk reveals a heated argument over finances',
+  library: 'A bookmark left in a book on poisons — someone was researching methods',
+  ballroom: 'Muddy footprints on the polished floor lead toward the study',
+  kitchen: 'A knocked-over spice rack and fresh blood on the counter',
+  cellar: 'An empty wine bottle with a cloth stopper — could have held poison',
+  terrace: 'A half-smoked cigar with unusual burn marks near the railing',
+  bedroom: 'A hidden compartment in the vanity contains a threatening note',
+  drawing: 'Overturned furniture and a broken vase — signs of a struggle',
+};
+
+rooms.forEach((room) => {
+  const clueText = roomPhysicalClues[room.id];
+  if (clueText) {
+    clues.push({
+      id: generateId(),
+      text: clueText,
+      roomId: room.id,
+      roomName: room.name,
+      type: 'herring' as const,
+      revealed: false,
+    });
+  }
+});
 ```
-┌─────────────────────────────┬──────────────────┐
-│  Main View (map/room/interview) │  Evidence Board  │
-│                             │  (sticky sidebar) │
-└─────────────────────────────┴──────────────────┘
+
+Also check `RoomView.tsx` — the `onSearch` in GameShell currently passes `roomClues.filter(c => discoveredClues.includes(c.id))` which is the DISCOVERED ones, not the undiscovered ones. This is already being passed as the `clues` prop for displaying. The `onSearch` in GameShell passes ALL roomClues. Let's verify:
+
+In `GameShell.tsx`:
+```tsx
+onSearch={() => {
+  const newClues = roomClues.map(c => ({ ...c, revealed: true }));
+  handleDiscoverClues(newClues);
+}}
+```
+`roomClues` here is `mystery.clues.filter(c => c.roomId === currentRoom)` — this is ALL room clues (not filtered by discovered). So the search should work once clues exist in each room. Good.
+
+But also: `RoomView` shows "Search for Clues" button only when `isNewRoom`. After the first search, `isNewRoom` becomes false (room is in visitedRooms). But the clues are already discovered — they'll show in the EvidenceBoard. So this flow is actually OK once room clues exist.
+
+Wait — there's another issue: `RoomView` takes `clues={roomClues.filter(c => discoveredClues.includes(c.id))}`. The `clues` prop in RoomView is for showing DISCOVERED clues IN the room. The search button calls `onSearch` which discovers them. This is fine.
+
+**Verification:** After adding physical clues to engine, enter any room, click "Search for Clues" — the evidence board should show a clue.
+
+---
+
+## Verification Commands (Run After All Changes)
+
+```bash
+# 1. Helena emoji fixed
+grep -n "她们" lib/game/data.ts && echo "FAIL: still has bad emoji" || echo "PASS: emoji fixed"
+
+# 2. Check MansionMap has visitedRooms prop
+grep -n "visitedRooms" components/MansionMap.tsx | wc -l
+
+# 3. Check victim filter in GameShell
+grep -n "victim.id" components/GameShell.tsx
+
+# 4. Check InterviewView has onQuestionAsked
+grep -n "onQuestionAsked" components/InterviewView.tsx
+
+# 5. Check engine has room physical clues
+grep -n "roomPhysicalClues\|Physical" lib/game/engine.ts
+
+# 6. Build passes
+npm run build
 ```
 
-**Layout (mobile):**
-- Stacked vertically
-- Evidence board as collapsible tab at bottom
-
-## Files to Create/Modify
-
-### Create:
-1. `lib/game/types.ts` — All interfaces
-2. `lib/game/data.ts` — Static data pools
-3. `lib/game/engine.ts` — Mystery generation, clue generation
-4. `components/GameShell.tsx` — Main controller
-5. `components/MansionMap.tsx` — Room grid (8 rooms, click to explore)
-6. `components/RoomView.tsx` — Room exploration, find clue button
-7. `components/InterviewView.tsx` — Suspect dialogue with question choices
-8. `components/EvidenceBoard.tsx` — Clue list sidebar
-9. `components/AccusationModal.tsx` — Select suspect/weapon/room, submit
-10. `components/SuspectCard.tsx` — Portrait card (emoji avatar, name, role, alibi)
-
-### Modify:
-1. `app/page.tsx` — Replace default with `<GameShell />`
-2. `app/layout.tsx` — Set dark bg, font
-3. `app/globals.css` — Keep Tailwind directives, remove default styles
-
-## Implementation Steps
-
-### Step 1: Types & Data (lib/game/)
-Create `types.ts` with all interfaces, then `data.ts` with full suspect/room/weapon pools, then `engine.ts` with `generateMystery()`.
-
-Verify: `tsc --noEmit` passes.
-
-### Step 2: GameShell (core state)
-Create `GameShell.tsx` with useReducer. Handles all state transitions. Renders child components based on phase.
-
-### Step 3: MansionMap
-8-room grid, each room clickable. Visited rooms get checkmark. Murder room shows skull after being visited.
-
-### Step 4: RoomView
-Shows room description. Lists suspects present (randomly assigned to rooms at mystery generation). Has "Search for clues" button — reveals any clues in that room. "Interview [Suspect]" button if suspect is here.
-
-### Step 5: InterviewView
-Shows suspect portrait (emoji + colored card), name, role, alibi. Player can ask:
-- "Where were you when it happened?"
-- "What do you know about [victim]?"
-- "Did you see anything suspicious?"
-Each question returns a pre-generated dialogue response (stored in mystery state).
-
-### Step 6: EvidenceBoard
-Fixed sidebar. Shows all discovered clues as cards. Each card: italic clue text, room found in. Empty state: "No clues yet."
-
-### Step 7: AccusationModal
-Triggered by "Make Accusation" button (always visible in header/sidebar). Three dropdowns: suspect, weapon, room. Submit button. Shows result (CORRECT / WRONG + solution reveal).
-
-### Step 8: Polish
-- Intro screen ("You've been called to Ashford Manor...")
-- Win/lose outcome screen
-- "New Case" button
-- Mobile responsive (test with Tailwind sm: breakpoints)
-- Loading spinner during mystery generation
-
-### Step 9: Build Check
-Run `npm run build` — must pass with no errors.
-
-## Verification Steps
-
-1. `npx tsc --noEmit` — No TypeScript errors
-2. `npm run build` — Build succeeds
-3. Manual check: GameShell renders without console errors
-4. Manual check: generateMystery() produces different results on each call
-5. Manual check: Accusation with correct killer/weapon/room → win
-6. Manual check: Wrong accusation → lose with solution reveal
-
-## Pitfalls to Avoid
-
-1. **'use client' directive**: All interactive components need `'use client'` at top (App Router requirement)
-2. **Math.random() in SSR**: Must call generateMystery() only client-side (in useEffect or event handler), NOT in server components
-3. **TypeScript strict mode**: tsconfig.json has strict:true. All types must be explicit.
-4. **Tailwind purge**: Only use standard Tailwind classes (no dynamic class construction like `bg-${color}-500`)
-5. **Next.js 14 App Router**: No `getServerSideProps` or `getStaticProps` — use server components or client-side state
-
-## Definition of Done
-
-- [ ] All 8 suspects, 8 rooms, 6 weapons in data.ts
-- [ ] generateMystery() produces unique mystery each call
-- [ ] Full gameplay loop: explore → interview → accuse → outcome
-- [ ] Evidence board tracks clues
-- [ ] Win/lose conditions work
-- [ ] "New Case" generates fresh mystery
-- [ ] Mobile responsive
-- [ ] `npm run build` passes
-- [ ] Pushed to GitHub
+## Pitfalls
+- `InterviewView` currently uses `isQuestionAsked: () => false`. Remove this dead code or replace with local state.
+- Don't break the `Clue` type — ensure interview clues match the interface.
+- `roomClues` in GameShell is computed outside the JSX — make sure it still filters correctly.
+- The `MansionMap` visitedRooms prop must be optional or GameShell will fail TypeScript.
+- `onSearch` in `RoomView` signature is `(clues: Clue[]) => void` but GameShell ignores the argument and uses its own `roomClues`. This is intentional — don't change it.

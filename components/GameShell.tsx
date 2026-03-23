@@ -274,7 +274,7 @@ export default function GameShell() {
             onInterview={handleStartInterview}
             onBack={handleReturnToMap}
             clues={roomClues.filter(c => discoveredClues.includes(c.id))}
-            isNewRoom={!visitedRooms.includes(currentRoom!)}
+            isNewRoom={roomClues.some(c => !discoveredClues.includes(c.id))}
           />
         )}
 
