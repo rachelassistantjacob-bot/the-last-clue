@@ -87,7 +87,7 @@ export const suspects: Suspect[] = [
     role: 'Niece / Heir',
     personality: 'Anxious, suspicious, always watching',
     motive: 'Victim planned to change the will and leave her with nothing',
-    avatar: '她们',
+    avatar: '🎨',
     alibi: 'Was in the library reading a book',
     alibiHole: false,
     alibiWitness: 'Dr. Harlow saw her there',

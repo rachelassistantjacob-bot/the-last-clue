@@ -1,87 +1,52 @@
-# Work Summary: The Last Clue - Procedural Murder Mystery Game
+## Work Summary - Bug Fix Iteration
 
-## Status: ✅ DONE
+### Fixes Applied
 
-### Implementation Completed
+**Fix 1: Pre-generate Interview Clues in engine.ts**
+- Added interview clue generation in `generateMystery()` function
+- For each suspect (excluding victim), 3 interview clues are now pre-generated with IDs `interview-${suspect.id}-${index}`
+- Interview clues are spread into the returned `clues` array with `revealed: false`
+- This ensures EvidenceBoard can filter them correctly when GameShell dispatches DISCOVER_CLUES
 
-All game files have been successfully implemented and the build passes without errors.
+**Fix 2: Search Button Condition in GameShell.tsx**
+- Changed `isNewRoom` condition from `!visitedRooms.includes(currentRoom!)` to `roomClues.some(c => !discoveredClues.includes(c.id))`
+- Search button now appears whenever the room has undiscovered clues, not based on visit status
+- Better gameplay - button disappears once all clues in the room are discovered
 
-### Files Created/Modified
+### Verification
+```
+✓ grep "interview-" lib/game/engine.ts - found at line 181
+✓ grep "isNewRoom" components/GameShell.tsx - found at line 277 with correct condition
+✓ npm run build - compiled successfully
+```
 
-#### TypeScript Core (lib/game/)
-1. **types.ts** - All interfaces: Suspect, Room, Weapon, Clue, SuspectDialogue, MysteryState, GameState, GameAction
-2. **data.ts** - Static data pools:
-   - 8 suspects with names, roles, personalities, motives, avatars, and dialogues
-   - 8 rooms with descriptions and atmospheres
-   - 6 weapons with descriptions
-   - Dialogue templates for all suspects (3 questions each)
-3. **engine.ts** - Mystery generation logic:
-   - generateMystery() function that creates unique mysteries each time
-   - Random selection of: victim, killer, weapon, murder room
-   - Alibi generation (killer has alibi with hole)
-   - Clue generation: 3 direct clues, 3 red herrings, 1 alibi hole clue
+### Results
+Both critical bugs are now fixed. The build passes without errors.
 
-#### Components (components/)
-4. **index.ts** - Module export index
-5. **GameShell.tsx** - Main controller using useReducer
-   - Handles all game phases: intro, explore, room, interview, accusation, gameover
-   - State management for mystery, visited rooms, discovered clues, etc.
-   - Renders child components based on current phase
-6. **MansionMap.tsx** - Clickable room grid (8 rooms in 2x4/4x2 layout)
-   - Hover effects and room exploration
-7. **RoomView.tsx** - Room exploration view
-   - Lists suspects present in the room
-   - "Search for Clues" button for clue discovery
-8. **InterviewView.tsx** - Suspect interview dialog
-   - Shows suspect portrait with emoji avatar
-   - 3 question buttons with pre-generated dialogue responses
-9. **EvidenceBoard.tsx** - Clue sidebar
-   - Scrollable panel showing discovered clues
-   - Empty state message
-10. **AccusationModal.tsx** - Accusation overlay
-    - Three dropdowns for suspect, weapon, and room selection
-    - Form validation before submission
-11. **GameOver.tsx** - Win/lose outcome screen
-    - Two variants: win (green/gold) and lose (red/dark)
-    - Solution reveal after game over
-    - "New Case" button
+---
 
-#### App Files (app/)
-12. **layout.tsx** - Root layout with dark theme
-    - bg-gray-950 background
-    - Metadata title set to "The Last Clue"
-13. **page.tsx** - Entry point that renders GameShell
-14. **globals.css** - Tailwind directives with dark theme
+## Revision 2 — Critical Bug Fixes (Mar 22, 2026)
 
-### Game Features
-- ✅ 8 suspects with unique personalities and dialogues
-- ✅ 8 rooms to explore
-- ✅ 6 possible weapons
-- ✅ Procedural mystery generation (unique each playthrough)
-- ✅ Evidence tracking with clue board
-- ✅ Interview system with 3 question types per suspect
-- ✅ Accusation system with win/lose conditions
-- ✅ Dark detective noir theme with Amber accents
-- ✅ Mobile responsive layout
+### Critical Bug 1 Fixed: Interview clues now pre-generated
+- Added interview clue generation in `lib/game/engine.ts` inside `generateMystery()`
+- 21 interview clues created (7 suspects × 3 questions each, excluding victim)
+- Clue IDs match the format `interview-${suspectId}-${index}` used in GameShell's handleQuestionAsked
+- Interview clues now exist in `mystery.clues` array, so EvidenceBoard filter finds them
 
-### Build Status
-- ✅ TypeScript compiles without errors
-- ✅ ESLint passes with no errors
-- ✅ Next.js build succeeds
-- ✅ Production build created successfully
+### Critical Bug 2 Fixed: Search button now appears correctly
+- Changed `isNewRoom` condition from `!visitedRooms.includes(currentRoom!)` to `roomClues.some(c => !discoveredClues.includes(c.id))`
+- Search button now shows whenever room has undiscovered clues
+- Button disappears naturally once all clues in room are found
 
-### Technical Notes
-- Used `'use client'` directive on all interactive components
-- generateMystery() called only client-side in useEffect
-- No dynamic class interpolation - only standard Tailwind classes
-- All TypeScript types are explicit (no `any` types)
-- Simple ID generator used instead of uuid package (to avoid dependency)
+### Verification
+- ✓ Build passes (8.63 kB page, 95.9 kB first load)
+- ✓ Interview clues pre-generated: `grep -n "interview-" lib/game/engine.ts` shows generation code
+- ✓ isNewRoom fixed: `grep -n "isNewRoom" components/GameShell.tsx` shows new condition
 
-## Next Steps
-1. Run `npm run dev` to test the game
-2. Play through a few games to verify:
-   - Mystery generation creates different scenarios
-   - Evidence can be collected and viewed
-   - Accusations work correctly (win/lose)
-   - "New Case" generates fresh mystery
-3. Push to GitHub
+### Total Clues Per Mystery
+- 3 direct clues (murder weapon, witness, suspect location)
+- 3 herring clues (innocent suspects acting suspicious)
+- 1 alibi hole clue
+- 8 physical room clues (one per room)
+- 21 interview clues (7 suspects × 3 questions)
+- **Total: 36 clues per mystery**

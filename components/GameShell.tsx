@@ -182,6 +182,19 @@ export default function GameShell() {
     dispatch({ type: 'NEW_GAME' });
   };
 
+  const handleQuestionAsked = (questionIndex: number, answer: string) => {
+    if (!mystery || !currentSuspect || !currentRoom) return;
+    const clue: Clue = {
+      id: `interview-${currentSuspect}-${questionIndex}`,
+      text: answer,
+      roomId: currentRoom,
+      roomName: mystery.allRooms.find(r => r.id === currentRoom)?.name || 'Interview',
+      type: 'direct' as const,
+      revealed: true,
+    };
+    dispatch({ type: 'DISCOVER_CLUES', clues: [clue] });
+  };
+
   // Get current room data
   const currentRoomData = mystery?.allRooms.find((r) => r.id === currentRoom);
   
@@ -239,7 +252,7 @@ export default function GameShell() {
           <div className="flex gap-6">
             <div className="flex-1">
               <h2 className="text-xl font-semibold mb-4 text-amber-500">Explore the Mansion</h2>
-              <MansionMap rooms={mystery.allRooms} onEnterRoom={handleEnterRoom} />
+              <MansionMap rooms={mystery.allRooms} visitedRooms={visitedRooms} onEnterRoom={handleEnterRoom} />
             </div>
             <EvidenceBoard clues={mystery.clues.filter((c) => discoveredClues.includes(c.id))} />
           </div>
@@ -261,7 +274,7 @@ export default function GameShell() {
             onInterview={handleStartInterview}
             onBack={handleReturnToMap}
             clues={roomClues.filter(c => discoveredClues.includes(c.id))}
-            isNewRoom={!visitedRooms.includes(currentRoom!)}
+            isNewRoom={roomClues.some(c => !discoveredClues.includes(c.id))}
           />
         )}
 
@@ -270,17 +283,19 @@ export default function GameShell() {
             suspect={mystery.allSuspects.find((s) => s.id === currentSuspect)!}
             victim={mystery.victim}
             onBack={handleReturnToRoom}
-            isQuestionAsked={() => false} // Simplified
+            onQuestionAsked={handleQuestionAsked}
           />
         )}
 
         {phase === 'accusation' && mystery && (
           <AccusationModal
-            suspects={mystery.allSuspects.map(s => ({
-              id: s.id,
-              name: s.name,
-              avatar: s.avatar,
-            }))}
+            suspects={mystery.allSuspects
+              .filter(s => s.id !== mystery.victim.id)
+              .map(s => ({
+                id: s.id,
+                name: s.name,
+                avatar: s.avatar,
+              }))}
             weapons={mystery.allWeapons.map(w => ({
               id: w.id,
               name: w.name,
